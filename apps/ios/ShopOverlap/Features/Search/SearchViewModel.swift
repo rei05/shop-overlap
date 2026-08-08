@@ -13,17 +13,31 @@ final class SearchViewModel {
     ]
     var chainQuery = ""
     var chainSuggestions: [ChainOption] = []
-    var placeQuery = "東京駅"
+    var placeQuery = "東京駅" {
+        didSet {
+            guard placeQuery != oldValue else { return }
+            isPlaceConfirmed = false
+            clearResults()
+        }
+    }
     var placeSuggestions: [GeocodeResult] = []
     var center = Coordinate(longitude: 139.7671, latitude: 35.6812)
-    var radiusKilometers = 20
-    var mode: SearchMode = .facility
-    var maximumWalkMinutes = 10
+    var radiusKilometers = 20 {
+        didSet { if radiusKilometers != oldValue { clearResults() } }
+    }
+    var mode: SearchMode = .facility {
+        didSet { if mode != oldValue { clearResults() } }
+    }
+    var maximumWalkMinutes = 10 {
+        didSet { if maximumWalkMinutes != oldValue { clearResults() } }
+    }
 
     private(set) var results: [SearchResult] = []
     private(set) var notices: [String] = []
     private(set) var missingChains: [String] = []
     private(set) var route: RouteResponse?
+    private(set) var hasCompletedSearch = false
+    private(set) var isPlaceConfirmed = true
     private(set) var isSearching = false
     private(set) var isLocating = false
     private(set) var errorMessage: String?
@@ -75,7 +89,10 @@ final class SearchViewModel {
     func updatePlaceSuggestions() {
         placeSuggestionTask?.cancel()
         let query = placeQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard query.count >= 2, query != "現在地", query != "地図上の地点" else {
+        guard !isPlaceConfirmed,
+              query.count >= 2,
+              query != "現在地",
+              query != "地図上の地点" else {
             placeSuggestions = []
             return
         }
@@ -124,6 +141,7 @@ final class SearchViewModel {
     func choosePlace(_ place: GeocodeResult) {
         placeQuery = place.label
         center = place.coordinate
+        isPlaceConfirmed = true
         placeSuggestions = []
         clearResults()
     }
@@ -131,6 +149,7 @@ final class SearchViewModel {
     func chooseMapCoordinate(_ coordinate: Coordinate) {
         center = coordinate
         placeQuery = "地図上の地点"
+        isPlaceConfirmed = true
         placeSuggestions = []
         clearResults()
     }
@@ -142,6 +161,7 @@ final class SearchViewModel {
         do {
             center = try await locationProvider.currentCoordinate()
             placeQuery = "現在地"
+            isPlaceConfirmed = true
             placeSuggestions = []
             clearResults()
         } catch {
@@ -150,6 +170,10 @@ final class SearchViewModel {
     }
 
     func search() async {
+        guard isPlaceConfirmed else {
+            errorMessage = "候補から場所を選択するか、現在地または地図上の地点を指定してください。"
+            return
+        }
         guard selectedChains.count >= Self.minimumChains else {
             errorMessage = "チェーンを2件以上選択してください。"
             return
@@ -158,6 +182,7 @@ final class SearchViewModel {
         routeTask?.cancel()
         errorMessage = nil
         route = nil
+        hasCompletedSearch = false
         isSearching = true
         let searchID = UUID()
         activeSearchID = searchID
@@ -184,6 +209,7 @@ final class SearchViewModel {
                 results = response.results
                 notices = response.notices
                 missingChains = response.missingChains
+                hasCompletedSearch = true
                 selectedResultID = response.results.first?.id
                 await loadRouteForSelection()
             } catch is CancellationError {
@@ -242,6 +268,7 @@ final class SearchViewModel {
         notices = []
         missingChains = []
         route = nil
+        hasCompletedSearch = false
         selectedResultID = nil
     }
 

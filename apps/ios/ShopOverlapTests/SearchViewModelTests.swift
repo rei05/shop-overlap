@@ -43,6 +43,32 @@ final class SearchViewModelTests: XCTestCase {
 
         XCTAssertEqual(model.errorMessage, LocationError.denied.errorDescription)
     }
+
+    func testSuccessfulEmptySearchRecordsCompletedState() async {
+        let model = SearchViewModel(
+            repository: RepositoryStub(response: .empty),
+            locationProvider: LocationStub(result: .success(Coordinate(longitude: 1, latitude: 2)))
+        )
+
+        await model.search()
+
+        XCTAssertTrue(model.hasCompletedSearch)
+        XCTAssertTrue(model.results.isEmpty)
+    }
+
+    func testSearchRequiresAConfirmedPlace() async {
+        let model = SearchViewModel(
+            repository: RepositoryStub(response: .empty),
+            locationProvider: LocationStub(result: .success(Coordinate(longitude: 1, latitude: 2)))
+        )
+
+        model.placeQuery = "新宿駅"
+        await model.search()
+
+        XCTAssertFalse(model.isPlaceConfirmed)
+        XCTAssertFalse(model.hasCompletedSearch)
+        XCTAssertNotNil(model.errorMessage)
+    }
 }
 
 private extension SearchResponse {

@@ -2,65 +2,60 @@ import SwiftUI
 
 struct SearchScreen: View {
     @Bindable var model: SearchViewModel
-    @State private var controlsPresented = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         NavigationStack {
             GeometryReader { proxy in
-                ScrollView {
-                    VStack(spacing: 0) {
-                        mapContent
-                        .frame(height: max(320, proxy.size.height * 0.48))
-                        .accessibilityIdentifier("results-map")
+                VStack(spacing: 0) {
+                    mapContent
+                        .frame(maxWidth: .infinity)
+                        .frame(height: mapHeight(for: proxy.size.height))
+                        .clipped()
 
-                        VStack(alignment: .leading, spacing: 12) {
-                            if model.results.isEmpty && !model.isSearching {
-                                ContentUnavailableView(
-                                    "条件を指定して検索",
-                                    systemImage: "map",
-                                    description: Text("地図をタップすると検索の中心を移動できます。")
-                                )
-                            } else {
-                                Text("\(model.results.count)件見つかりました")
-                                    .font(.title3.bold())
-                                ResultsView(
-                                    results: model.results,
-                                    selectedID: model.selectedResultID,
-                                    notices: model.notices,
-                                    missingChains: model.missingChains,
-                                    onSelect: model.selectResult
-                                )
+                    Divider()
+
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            SearchControlsView(model: model)
+
+                            VStack(alignment: .leading, spacing: 12) {
+                                if model.isSearching {
+                                    ProgressView("重なる場所を検索しています…")
+                                        .frame(maxWidth: .infinity, minHeight: 120)
+                                        .accessibilityIdentifier("search-progress")
+                                } else if isShowingEmptySearchResult {
+                                    ContentUnavailableView(
+                                        "重なる場所が見つかりませんでした",
+                                        systemImage: "magnifyingglass",
+                                        description: Text("検索範囲やチェーンを変えて、もう一度お試しください。")
+                                    )
+                                    .accessibilityIdentifier("empty-search-results")
+                                } else if !model.results.isEmpty {
+                                    Text("\(model.results.count)件見つかりました")
+                                        .font(.title3.bold())
+                                        .accessibilityAddTraits(.isHeader)
+                                    ResultsView(
+                                        results: model.results,
+                                        selectedID: model.selectedResultID,
+                                        notices: model.notices,
+                                        missingChains: model.missingChains,
+                                        onSelect: model.selectResult
+                                    )
+                                }
                             }
+                            .padding()
                         }
-                        .padding()
+                        .frame(maxWidth: .infinity)
                     }
+                    .scrollDismissesKeyboard(.interactively)
+                    .accessibilityIdentifier("search-content-scroll")
                 }
             }
             .navigationTitle("ShopOverlap")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button { controlsPresented = true } label: {
-                        Label("検索条件", systemImage: "slider.horizontal.3")
-                    }
-                    .accessibilityIdentifier("search-options-button")
-                }
-            }
-            .sheet(isPresented: $controlsPresented) {
-                NavigationStack {
-                    ScrollView {
-                        SearchControlsView(model: model) {
-                            controlsPresented = false
-                        }
-                    }
-                        .navigationTitle("検索条件")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("完了") { controlsPresented = false }
-                            }
-                        }
-                }
-                .presentationDetents([.medium, .large])
+            .navigationBarTitleDisplayMode(.inline)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                SearchActionView(model: model) { }
             }
             .alert("エラー", isPresented: Binding(
                 get: { model.errorMessage != nil },
@@ -70,21 +65,25 @@ struct SearchScreen: View {
             } message: {
                 Text(model.errorMessage ?? "")
             }
-            .safeAreaInset(edge: .bottom) {
-                if model.results.isEmpty {
-                    Button {
-                        controlsPresented = true
-                    } label: {
-                        Label("検索条件を開く", systemImage: "magnifyingglass")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .padding()
-                    .background(.ultraThinMaterial)
-                }
-            }
         }
+    }
+
+    private var isShowingEmptySearchResult: Bool {
+        model.hasCompletedSearch && model.results.isEmpty
+    }
+
+    private func mapHeight(for availableHeight: CGFloat) -> CGFloat {
+        let preferredFraction = dynamicTypeSize.isAccessibilitySize ? 0.24 : 0.34
+        let maximumHeight: CGFloat = dynamicTypeSize.isAccessibilitySize ? 200 : 320
+        let minimumScrollableHeight: CGFloat = 132
+        let minimumMapHeight: CGFloat = 96
+        let maximumAvailableHeight = max(minimumMapHeight, availableHeight - minimumScrollableHeight)
+
+        return min(
+            maximumHeight,
+            maximumAvailableHeight,
+            max(minimumMapHeight, availableHeight * preferredFraction)
+        )
     }
 
     @ViewBuilder
@@ -96,6 +95,7 @@ struct SearchScreen: View {
                 description: Text("Config/Secrets.xcconfig にiOS用のGoogle Mapsキーを設定してください。")
             )
             .background(Color.secondary.opacity(0.08))
+            .accessibilityIdentifier("results-map")
         } else {
             GoogleMapView(
                 center: model.center,
@@ -109,6 +109,29 @@ struct SearchScreen: View {
                     }
                 }
             )
+            .accessibilityIdentifier("results-map")
+            .overlay(alignment: .bottomTrailing) {
+                Button {
+                    Task { await model.useCurrentLocation() }
+                } label: {
+                    Label(
+                        model.isLocating ? "現在地を取得中" : "現在地を使う",
+                        systemImage: "location.fill"
+                    )
+                    .labelStyle(.iconOnly)
+                    .frame(minWidth: 44, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(uiColor: .systemBackground))
+                .foregroundStyle(.primary)
+                .shadow(radius: 2, y: 1)
+                .padding(16)
+                .disabled(model.isLocating)
+                .accessibilityLabel("現在地を使う")
+                .accessibilityValue(model.isLocating ? "取得中" : "")
+                .accessibilityHint("端末の現在地を検索の中心に設定します")
+                .accessibilityIdentifier("map-current-location-button")
+            }
         }
     }
 }
