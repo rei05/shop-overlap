@@ -1,11 +1,6 @@
 node_modules
-.next
-out
 coverage
-playwright-report
-test-results
 .env
-.env.local
 apps/api/.dev.vars
 apps/ios/Config/Secrets.xcconfig
 apps/ios/**/xcuserdata/

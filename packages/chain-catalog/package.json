@@ -8,6 +8,7 @@
     "./data/chains.jp.json": "./data/chains.jp.json"
   },
   "scripts": {
+    "generate": "node ./scripts/generate.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

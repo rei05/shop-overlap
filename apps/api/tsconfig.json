@@ -9,8 +9,7 @@
     "types": ["@cloudflare/workers-types"],
     "paths": {
       "@shop-overlap/api-contract": ["../../packages/api-contract/src/index.ts"],
-      "@shop-overlap/chain-catalog": ["../../packages/chain-catalog/src/index.ts"],
-      "@shop-overlap/shared-ts": ["../../packages/shared-ts/src/index.ts"]
+      "@shop-overlap/chain-catalog": ["../../packages/chain-catalog/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"]

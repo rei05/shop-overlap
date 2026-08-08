@@ -10,7 +10,6 @@ export type Position = components["schemas"]["Position"];
 export type RouteRequest = components["schemas"]["RouteRequest"];
 export type RouteResponse = components["schemas"]["RouteResponse"];
 export type RouteStop = components["schemas"]["RouteStop"];
-export type RuntimeConfig = components["schemas"]["RuntimeConfig"];
 export type SearchMode = components["schemas"]["SearchMode"];
 export type SearchRequest = components["schemas"]["SearchRequest"];
 export type SearchResponse = components["schemas"]["SearchResponse"];

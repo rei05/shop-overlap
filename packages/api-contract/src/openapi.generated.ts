@@ -4,23 +4,6 @@
  */
 
 export interface paths {
-    "/api/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get browser map configuration */
-        get: operations["getRuntimeConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/chains": {
         parameters: {
             query?: never;
@@ -98,10 +81,6 @@ export interface components {
             number,
             number
         ];
-        RuntimeConfig: {
-            googleMapsBrowserApiKey: string;
-            googleMapsMapId: string;
-        };
         SourceAttribution: {
             provider: string;
             /** Format: uri */
@@ -241,27 +220,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    getRuntimeConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Google Maps browser configuration. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RuntimeConfig"];
-                };
-            };
-            default: components["responses"]["Problem"];
-        };
-    };
     listChains: {
         parameters: {
             query?: {

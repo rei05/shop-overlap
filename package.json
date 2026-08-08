@@ -5,32 +5,22 @@
   "engines": {
     "node": ">=22"
   },
-  "overrides": {
-    "postcss": "8.5.25",
-    "sharp": "0.35.3"
-  },
   "workspaces": [
-    "apps/web",
     "apps/api",
     "packages/*"
   ],
   "scripts": {
-    "dev:web": "npm run dev --workspace @shop-overlap/web",
-    "dev:api": "npm run build:web && npm run dev --workspace @shop-overlap/api",
-    "build:web": "npm run build --workspace @shop-overlap/web",
-    "build": "npm run build:web",
-    "lint": "npm run lint --workspaces --if-present",
+    "api:dev": "npm run dev --workspace @shop-overlap/api",
+    "api:deploy": "npm run deploy --workspace @shop-overlap/api",
+    "ios:dev": "bash scripts/dev-ios.sh",
+    "ios:run": "bash apps/ios/Scripts/run-simulator.sh",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "worker:typecheck": "npm run typecheck --workspace @shop-overlap/api",
     "test": "npm run test --workspaces --if-present",
-    "test:e2e": "npm run test:e2e --workspace @shop-overlap/web",
-    "test:ios": "xcodebuild test -project apps/ios/ShopOverlap.xcodeproj -scheme ShopOverlap -destination 'platform=iOS Simulator,name=iPhone 16e' CODE_SIGNING_ALLOWED=NO",
-    "contracts:generate": "npm run generate --workspace @shop-overlap/api-contract",
-    "contracts:check": "npm run check:generated --workspace @shop-overlap/api-contract",
-    "catalog:generate": "node tooling/scripts/build-chain-catalog.mjs",
-    "chains:build": "npm run catalog:generate",
-    "worker:dev": "npm run dev:api",
-    "worker:deploy": "npm run build:web && npm run deploy --workspace @shop-overlap/api",
-    "deploy": "npm run worker:deploy"
+    "ios:test": "xcodebuild test -project apps/ios/ShopOverlap.xcodeproj -scheme ShopOverlap -destination 'platform=iOS Simulator,OS=latest,name=iPhone 17e' -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO",
+    "contract:generate": "npm run generate --workspace @shop-overlap/api-contract",
+    "contract:check": "npm run check:generated --workspace @shop-overlap/api-contract",
+    "catalog:generate": "npm run generate --workspace @shop-overlap/chain-catalog",
+    "catalog:check": "npm run catalog:generate && git diff --exit-code -- packages/chain-catalog/data/chains.jp.json",
+    "verify": "npm run contract:check && npm run catalog:check && npm run typecheck && npm test"
   }
 }

@@ -11,11 +11,11 @@
   },
   "dependencies": {
     "@shop-overlap/api-contract": "0.1.0",
-    "@shop-overlap/chain-catalog": "0.1.0",
-    "@shop-overlap/shared-ts": "0.1.0"
+    "@shop-overlap/chain-catalog": "0.1.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260801.1",
+    "sharp": "0.35.2",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10",
     "wrangler": "^4.118.0"

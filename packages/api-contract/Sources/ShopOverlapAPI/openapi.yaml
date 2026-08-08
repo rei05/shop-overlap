@@ -9,19 +9,6 @@ info:
 servers:
   - url: https://api.example.invalid
 paths:
-  /api/config:
-    get:
-      operationId: getRuntimeConfig
-      summary: Get browser map configuration
-      responses:
-        '200':
-          description: Google Maps browser configuration.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RuntimeConfig'
-        default:
-          $ref: '#/components/responses/Problem'
   /api/chains:
     get:
       operationId: listChains
@@ -126,17 +113,6 @@ components:
           maximum: 90
       minItems: 2
       maxItems: 2
-    RuntimeConfig:
-      type: object
-      additionalProperties: false
-      required: [googleMapsBrowserApiKey, googleMapsMapId]
-      properties:
-        googleMapsBrowserApiKey:
-          type: string
-          minLength: 1
-        googleMapsMapId:
-          type: string
-          minLength: 1
     SourceAttribution:
       type: object
       additionalProperties: false

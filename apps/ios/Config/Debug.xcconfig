@@ -3,7 +3,7 @@
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
 #include? "Secrets.xcconfig"
 
-// Keep local development traffic on the Worker started by `npm run dev:api`.
+// Keep local development traffic on the Worker started by `npm run api:dev`.
 // Secrets provides credentials only; it must not redirect Debug builds to a
 // placeholder or production endpoint.
 API_BASE_URL = http:/$()/localhost:8787

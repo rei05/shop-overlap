@@ -4,7 +4,6 @@ generate:
 accessModifier: public
 filter:
   operations:
-    - getRuntimeConfig
     - listChains
     - geocode
     - search

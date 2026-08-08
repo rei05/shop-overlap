@@ -3,6 +3,7 @@ import SwiftUI
 struct SearchControlsView: View {
     @Bindable var model: SearchViewModel
     let onSearchCompleted: () -> Void
+    private let legalBaseURL = AppConfiguration().legalBaseURL
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -27,12 +28,14 @@ struct SearchControlsView: View {
             .disabled(model.isSearching || model.selectedChains.count < SearchViewModel.minimumChains)
             .accessibilityIdentifier("search-button")
 
-            HStack(spacing: 16) {
-                Link("利用規約", destination: AppConfiguration().apiBaseURL.appending(path: "terms"))
-                Link("プライバシー", destination: AppConfiguration().apiBaseURL.appending(path: "privacy"))
+            if let legalBaseURL {
+                HStack(spacing: 16) {
+                    Link("利用規約", destination: legalBaseURL.appending(path: "terms"))
+                    Link("プライバシー", destination: legalBaseURL.appending(path: "privacy"))
+                }
+                .font(.footnote)
+                .frame(maxWidth: .infinity)
             }
-            .font(.footnote)
-            .frame(maxWidth: .infinity)
         }
         .padding()
     }
