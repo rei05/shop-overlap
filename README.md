@@ -2,6 +2,98 @@
 
 指定した2〜5件のチェーンが同じ商業施設に入っている場所、または設定時間内に徒歩で回れる組み合わせを探す、日本国内向けのiOSアプリです。SwiftUIクライアントは、Google Maps Platformのサーバー用キーを保持するCloudflare Worker APIを利用します。
 
+## アーキテクチャ
+
+Cloudflare WorkerはWeb画面ではなく、iOSアプリ専用のBFF（Backend for Frontend）兼APIサーバーです。iOSアプリとGoogle Places / Routes APIの間に入り、サーバー用APIキーと検索ロジックをクライアントから分離します。地図そのものの表示はWorkerを経由せず、iOSアプリがMaps SDK for iOSを直接利用します。
+
+```mermaid
+flowchart LR
+    user["利用者"] --> ui
+    coreLocation["iOS Core Location"] -->|現在地| ui
+
+    subgraph ios["iOSアプリ（SwiftUI）"]
+        ui["画面 / SearchViewModel"]
+        client["APIRepository / APIClient"]
+        map["GoogleMapView"]
+        ui --> client
+        ui --> map
+    end
+
+    client -->|"HTTPS・JSON<br/>/api/chains<br/>/api/geocode<br/>/api/search<br/>/api/route"| router
+
+    subgraph cloudflare["Cloudflare Worker（iOS向けBFF / API）"]
+        router["HTTPルーター<br/>入力検証・エラー形式の統一"]
+        catalog["日本向けチェーンカタログ"]
+        search["検索サービス<br/>共通施設判定・候補削減・徒歩探索"]
+        adapter["Google APIアダプター<br/>Field Mask・タイムアウト・応答正規化"]
+
+        router -->|"チェーン候補"| catalog
+        router -->|"検索条件"| search
+        router -->|"住所検索・経路取得"| adapter
+        search -->|"店舗検索・徒歩時間行列"| adapter
+    end
+
+    subgraph google["Google Maps Platform"]
+        mapsSDK["Maps SDK for iOS"]
+        places["Places API（New）"]
+        routes["Routes API"]
+    end
+
+    map -->|"地図・マーカー・経路線<br/>iOS制限キー"| mapsSDK
+    adapter -->|"店舗・施設・住所<br/>Worker secret"| places
+    adapter -->|"徒歩時間行列・経路<br/>Worker secret"| routes
+
+    serverSecret["Cloudflare Secret<br/>GOOGLE_MAPS_API_KEY"] -.-> adapter
+    contract["api-contract<br/>OpenAPI・生成型"] -.-> client
+    contract -.-> router
+    catalogPackage["chain-catalog<br/>生成済みJSON"] -.-> catalog
+```
+
+### Cloudflare Workerの役割
+
+| 責務 | 内容 |
+| --- | --- |
+| サーバー用キーの保護 | Places APIとRoutes API用の `GOOGLE_MAPS_API_KEY` をCloudflare Secretに保持し、iOSアプリへ配布しない |
+| アプリ専用APIの提供 | Google固有のレスポンスを直接公開せず、OpenAPIで定義したアプリ向けJSONと共通エラー形式に変換する |
+| 検索の組み立て | チェーンごとの店舗検索、同じ入居施設の判定、徒歩候補の絞り込み、徒歩時間行列を使った組み合わせ探索を実行する |
+| 外部APIの制御 | 入力上限、Field Mask、タイムアウト、Google APIエラーの変換、同時に来た同一リクエストの集約を行う |
+| チェーン候補の配信 | ビルド時に生成した日本向けチェーンカタログを `/api/chains` から返す。この処理ではGoogle APIを呼ばない |
+
+Workerはデータベースではなく、現在はユーザー情報や検索履歴を永続化しません。また、ユーザー認証を行う仕組みもありません。Workerの公開URLはアプリ以外からも呼び出せるため、将来必要になった場合はCloudflare側のレート制限やApp Attestなどを別途検討します。
+
+APIキーは用途ごとに分離します。
+
+- iOS用キー: Maps SDK for iOS専用。アプリに含まれるため、Bundle ID `jp.shopoverlap.app` で制限する
+- サーバー用キー: Places API（New）とRoutes API専用。Worker secretに保存し、iOSへ返さない
+
+### 検索時のデータフロー
+
+1. チェーン入力時は、iOSアプリが `/api/chains` を呼び、Worker内のチェーンカタログから候補を取得します。
+2. 地名・住所入力時は、`/api/geocode` を通じてWorkerがPlaces APIを呼び、表示名と座標だけをアプリ向け形式で返します。
+3. 検索時は、iOSアプリが選択チェーン、検索中心、半径、検索モードを `/api/search` へ送ります。
+4. 「同じ施設」モードでは、WorkerがPlaces APIの入居施設情報から全チェーンに共通する施設を判定します。
+5. 「徒歩で回る」モードでは、Workerが候補店舗を絞り、Routes APIの徒歩時間行列を使って制限時間内の組み合わせを求めます。
+6. 徒歩結果を選ぶと `/api/route` が実経路をGeoJSONで返し、iOSアプリがMaps SDK上へ経路線を描画します。
+
+現在地を利用した場合、その座標は検索中心としてWorkerへ送信され、店舗・経路検索のためGoogle APIへ渡されます。現在の実装ではWorkerやデータベースへ保存しません。
+
+### 開発・デプロイ経路
+
+```mermaid
+flowchart LR
+    developer["開発者"] --> iosDev["npm run ios:dev"]
+    iosDev --> localWorker["WranglerローカルWorker<br/>127.0.0.1:8787"]
+    iosDev --> simulator["xcodebuild / simctl<br/>iOS Simulator"]
+    simulator -->|"Debug API_BASE_URL"| localWorker
+
+    pullRequest["Pull Request / 手動実行"] --> ci["GitHub Actions CI<br/>Node検証・iOSテスト"]
+    mainPush["mainへpush"] --> deployWorkflow["Deploy workflow<br/>npm ci・verify"]
+    deployWorkflow -->|"wrangler deploy"| productionWorker["Cloudflare Worker<br/>本番API"]
+    releaseApp["iOS Releaseビルド"] -->|"Release API_BASE_URL"| productionWorker
+```
+
+GitHub Actionsが自動デプロイするのはCloudflare Workerだけです。iOSアプリの署名、TestFlight、App Store配布は現在のワークフローには含まれていません。実装上の入口は [Worker API](apps/api/src/worker.ts)、検索ユースケースは [search service](apps/api/src/services/search.ts)、API契約の正本は [OpenAPI](packages/api-contract/Sources/ShopOverlapAPI/openapi.yaml) です。
+
 ## リポジトリ構成
 
 ```text
