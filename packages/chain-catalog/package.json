@@ -1,0 +1,20 @@
+{
+  "name": "@shop-overlap/chain-catalog",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./data/chains.jp.json": "./data/chains.jp.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@shop-overlap/api-contract": "0.1.0"
+  },
+  "devDependencies": {
+    "name-suggestion-index": "^8.0.20260729",
+    "typescript": "^6.0.3"
+  }
+}

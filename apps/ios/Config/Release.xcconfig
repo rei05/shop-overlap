@@ -1,0 +1,7 @@
+#include "Base.xcconfig"
+
+SWIFT_COMPILATION_MODE = wholemodule
+// Replace this with the deployed Worker URL in an untracked Secrets.xcconfig or CI setting.
+API_BASE_URL = https:/$()/example.invalid
+
+#include? "Secrets.xcconfig"

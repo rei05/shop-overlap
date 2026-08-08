@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_API_BASE_URL: http://api.test.local
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run contracts:check
+      - run: npm run catalog:generate
+      - run: git diff --exit-code -- packages/chain-catalog/data/chains.jp.json
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve Swift packages
+        run: >-
+          xcodebuild -resolvePackageDependencies
+          -project apps/ios/ShopOverlap.xcodeproj
+          -scheme ShopOverlap
+      - name: Test iOS app
+        run: >-
+          xcodebuild test
+          -project apps/ios/ShopOverlap.xcodeproj
+          -scheme ShopOverlap
+          -destination 'platform=iOS Simulator,OS=latest,name=iPhone 16e'
+          CODE_SIGNING_ALLOWED=NO

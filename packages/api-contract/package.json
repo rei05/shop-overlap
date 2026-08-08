@@ -1,0 +1,22 @@
+{
+  "name": "@shop-overlap/api-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./openapi.yaml": "./Sources/ShopOverlapAPI/openapi.yaml"
+  },
+  "scripts": {
+    "generate": "openapi-typescript Sources/ShopOverlapAPI/openapi.yaml --output src/openapi.generated.ts",
+    "check:generated": "node ./scripts/check-generated.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "^5.9.3"
+  }
+}

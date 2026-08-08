@@ -1,0 +1,438 @@
+openapi: 3.1.0
+info:
+  title: Shop Overlap API
+  version: 1.0.0
+  description: |
+    API for finding combinations of Japanese retail chains. All positions are
+    JSON tuples in `[longitude, latitude]` order. The service is backed by
+    Google Maps Platform; clients must not infer or depend on provider IDs.
+servers:
+  - url: https://api.example.invalid
+paths:
+  /api/config:
+    get:
+      operationId: getRuntimeConfig
+      summary: Get browser map configuration
+      responses:
+        '200':
+          description: Google Maps browser configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuntimeConfig'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/chains:
+    get:
+      operationId: listChains
+      summary: Find selectable chain brands
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        '200':
+          description: Matching chain brands.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChainOption'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/geocode:
+    get:
+      operationId: geocode
+      summary: Geocode an address or place name
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        '200':
+          description: Ranked address candidates.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GeocodeResult'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/search:
+    post:
+      operationId: search
+      summary: Find a shared facility or a walkable collection of stores
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        '200':
+          description: Search results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/route:
+    post:
+      operationId: route
+      summary: Get a walking route through selected stores
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteRequest'
+      responses:
+        '200':
+          description: A GeoJSON LineString route.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+components:
+  responses:
+    Problem:
+      description: A machine-readable error response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiProblem'
+  schemas:
+    Position:
+      type: array
+      description: Longitude followed by latitude, `[longitude, latitude]`.
+      prefixItems:
+        - type: number
+          minimum: -180
+          maximum: 180
+        - type: number
+          minimum: -90
+          maximum: 90
+      minItems: 2
+      maxItems: 2
+    RuntimeConfig:
+      type: object
+      additionalProperties: false
+      required: [googleMapsBrowserApiKey, googleMapsMapId]
+      properties:
+        googleMapsBrowserApiKey:
+          type: string
+          minLength: 1
+        googleMapsMapId:
+          type: string
+          minLength: 1
+    SourceAttribution:
+      type: object
+      additionalProperties: false
+      required: [provider]
+      properties:
+        provider:
+          type: string
+          minLength: 1
+        providerUri:
+          type: string
+          format: uri
+    ChainInput:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        wikidata:
+          type: string
+          pattern: '^Q[0-9]+$'
+        aliases:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+    ChainOption:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        wikidata:
+          type: string
+          pattern: '^Q[0-9]+$'
+        aliases:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+        category:
+          type: string
+    Store:
+      type: object
+      description: A store returned by the Google-backed search service.
+      additionalProperties: false
+      required: [id, chainId, chainName, name, coordinate]
+      properties:
+        id:
+          type: string
+        chainId:
+          type: string
+        chainName:
+          type: string
+        name:
+          type: string
+        coordinate:
+          $ref: '#/components/schemas/Position'
+        address:
+          type: string
+        mapUri:
+          type: string
+          format: uri
+        sourceAttributions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceAttribution'
+    SearchMode:
+      type: string
+      enum: [facility, walking]
+    SearchRequest:
+      type: object
+      additionalProperties: false
+      required: [center, radiusMeters, chains, mode]
+      properties:
+        center:
+          $ref: '#/components/schemas/Position'
+        radiusMeters:
+          type: integer
+          minimum: 1000
+          maximum: 40000
+          multipleOf: 1000
+        chains:
+          type: array
+          minItems: 2
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/ChainInput'
+        mode:
+          $ref: '#/components/schemas/SearchMode'
+        maxWalkMinutes:
+          type: integer
+          minimum: 5
+          maximum: 15
+          multipleOf: 5
+    FacilityResult:
+      type: object
+      additionalProperties: false
+      required: [kind, id, name, coordinate, stores]
+      properties:
+        kind:
+          const: facility
+        id:
+          type: string
+        name:
+          type: string
+        subtitle:
+          type: string
+        coordinate:
+          $ref: '#/components/schemas/Position'
+        stores:
+          type: array
+          items:
+            $ref: '#/components/schemas/Store'
+        sourceAttributions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceAttribution'
+    WalkingResult:
+      type: object
+      additionalProperties: false
+      required: [kind, id, name, coordinate, durationSeconds, estimatedDistanceMeters, stores]
+      properties:
+        kind:
+          const: walking
+        id:
+          type: string
+        name:
+          type: string
+        coordinate:
+          $ref: '#/components/schemas/Position'
+        durationSeconds:
+          type: integer
+          minimum: 0
+        estimatedDistanceMeters:
+          type: integer
+          minimum: 0
+        stores:
+          type: array
+          items:
+            $ref: '#/components/schemas/Store'
+    SearchResult:
+      oneOf:
+        - $ref: '#/components/schemas/FacilityResult'
+        - $ref: '#/components/schemas/WalkingResult'
+      discriminator:
+        propertyName: kind
+        mapping:
+          facility: '#/components/schemas/FacilityResult'
+          walking: '#/components/schemas/WalkingResult'
+    SearchResponse:
+      type: object
+      additionalProperties: false
+      required: [mode, results, missingChains, analyzedAt, notices]
+      properties:
+        mode:
+          $ref: '#/components/schemas/SearchMode'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResult'
+        missingChains:
+          type: array
+          items:
+            type: string
+        analyzedAt:
+          type: string
+          format: date-time
+        notices:
+          type: array
+          items:
+            type: string
+    GeocodeResult:
+      type: object
+      additionalProperties: false
+      required: [id, label, coordinate]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        coordinate:
+          $ref: '#/components/schemas/Position'
+        locality:
+          type: string
+        sourceAttributions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceAttribution'
+    RouteStop:
+      type: object
+      additionalProperties: false
+      required: [id, name, coordinate]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 150
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        coordinate:
+          $ref: '#/components/schemas/Position'
+    RouteRequest:
+      type: object
+      additionalProperties: false
+      required: [stops]
+      properties:
+        stops:
+          type: array
+          minItems: 2
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/RouteStop'
+    GeoJsonLineString:
+      type: object
+      additionalProperties: false
+      required: [type, coordinates]
+      properties:
+        type:
+          const: LineString
+        coordinates:
+          type: array
+          minItems: 2
+          items:
+            $ref: '#/components/schemas/Position'
+    GeoJsonFeature:
+      type: object
+      additionalProperties: false
+      required: [type, geometry, properties]
+      properties:
+        type:
+          const: Feature
+        geometry:
+          $ref: '#/components/schemas/GeoJsonLineString'
+        properties:
+          type: object
+          additionalProperties: true
+    GeoJsonFeatureCollection:
+      type: object
+      additionalProperties: false
+      required: [type, features]
+      properties:
+        type:
+          const: FeatureCollection
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeoJsonFeature'
+    RouteResponse:
+      type: object
+      additionalProperties: false
+      required: [route, distanceMeters, durationSeconds]
+      properties:
+        route:
+          $ref: '#/components/schemas/GeoJsonFeatureCollection'
+        distanceMeters:
+          type: integer
+          minimum: 0
+        durationSeconds:
+          type: integer
+          minimum: 0
+    ApiProblem:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, retryable]
+          properties:
+            code:
+              type: string
+              minLength: 1
+            message:
+              type: string
+              minLength: 1
+            retryable:
+              type: boolean
+            details: {}

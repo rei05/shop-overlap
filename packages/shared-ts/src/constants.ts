@@ -1,0 +1,14 @@
+export const DEFAULT_CENTER = [139.7671, 35.6812] as const;
+export const MIN_WALK_MINUTES = 5;
+export const MAX_WALK_MINUTES = 15;
+export const WALK_MINUTES_STEP = 5;
+export const DEFAULT_WALK_MINUTES = 10;
+export const MIN_CHAINS = 2;
+export const MAX_CHAINS = 5;
+export const MAX_WALKING_CANDIDATES = 50;
+export const MIN_SEARCH_RADIUS_KM = 1;
+export const MAX_SEARCH_RADIUS_KM = 40;
+export const DEFAULT_SEARCH_RADIUS_KM = 20;
+export const MIN_SEARCH_RADIUS_METERS = MIN_SEARCH_RADIUS_KM * 1_000;
+export const MAX_SEARCH_RADIUS_METERS = MAX_SEARCH_RADIUS_KM * 1_000;
+export const SEARCH_RADIUS_STEP_METERS = 1_000;

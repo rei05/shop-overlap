@@ -1,0 +1,36 @@
+{
+  "name": "shop-overlap",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "postcss": "8.5.25",
+    "sharp": "0.35.3"
+  },
+  "workspaces": [
+    "apps/web",
+    "apps/api",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @shop-overlap/web",
+    "dev:api": "npm run build:web && npm run dev --workspace @shop-overlap/api",
+    "build:web": "npm run build --workspace @shop-overlap/web",
+    "build": "npm run build:web",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "worker:typecheck": "npm run typecheck --workspace @shop-overlap/api",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e --workspace @shop-overlap/web",
+    "test:ios": "xcodebuild test -project apps/ios/ShopOverlap.xcodeproj -scheme ShopOverlap -destination 'platform=iOS Simulator,name=iPhone 16e' CODE_SIGNING_ALLOWED=NO",
+    "contracts:generate": "npm run generate --workspace @shop-overlap/api-contract",
+    "contracts:check": "npm run check:generated --workspace @shop-overlap/api-contract",
+    "catalog:generate": "node tooling/scripts/build-chain-catalog.mjs",
+    "chains:build": "npm run catalog:generate",
+    "worker:dev": "npm run dev:api",
+    "worker:deploy": "npm run build:web && npm run deploy --workspace @shop-overlap/api",
+    "deploy": "npm run worker:deploy"
+  }
+}

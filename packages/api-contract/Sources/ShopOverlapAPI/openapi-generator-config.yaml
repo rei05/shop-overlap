@@ -1,0 +1,11 @@
+generate:
+  - types
+  - client
+accessModifier: public
+filter:
+  operations:
+    - getRuntimeConfig
+    - listChains
+    - geocode
+    - search
+    - route
