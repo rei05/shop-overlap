@@ -20,6 +20,21 @@ if ! grep -Eq '^GOOGLE_MAPS_IOS_API_KEY[[:space:]]*=[[:space:]]*[^[:space:]]+' "
   exit 1
 fi
 
+if [[ -n "${SHOP_OVERLAP_SIMULATOR_LOCATION+x}" ]]; then
+  simulator_location="$SHOP_OVERLAP_SIMULATOR_LOCATION"
+  if [[ ! "$simulator_location" =~ ^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$ ]]; then
+    echo "SHOP_OVERLAP_SIMULATOR_LOCATION must be a latitude,longitude pair." >&2
+    exit 1
+  fi
+
+  IFS=, read -r latitude longitude <<< "$simulator_location"
+  if ! awk -v latitude="$latitude" -v longitude="$longitude" \
+    'BEGIN { exit !(latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180) }'; then
+    echo "SHOP_OVERLAP_SIMULATOR_LOCATION is outside valid latitude/longitude ranges." >&2
+    exit 1
+  fi
+fi
+
 device_info() {
   xcrun simctl list devices available -j | node -e '
     let input = "";
@@ -55,6 +70,9 @@ case "$device_state" in
     ;;
 esac
 xcrun simctl bootstatus "$device_id" -b
+if [[ -n "${SHOP_OVERLAP_SIMULATOR_LOCATION+x}" ]]; then
+  xcrun simctl location "$device_id" set "$simulator_location"
+fi
 
 echo "Building ShopOverlap for $device_name..."
 xcodebuild build -quiet \

@@ -18,6 +18,11 @@ Maps SDK for iOS key.
 If the Worker is already running, use `npm run ios:run` to rebuild and relaunch
 only the Simulator app.
 
+The launcher preserves the Simulator's existing location, including a location
+set in Simulator's **Features > Location > Custom Location**. To set a location
+for a launch explicitly, use `SHOP_OVERLAP_SIMULATOR_LOCATION=latitude,longitude`,
+for example `SHOP_OVERLAP_SIMULATOR_LOCATION=35.6586,139.7454 npm run ios:run`.
+
 The app target links the local `../../packages/api-contract` package. API models
 mirror its public OpenAPI contract, and `APIRepository` validates coordinate wire
 order through `ShopOverlapAPI`. The repository remains the only transport boundary,

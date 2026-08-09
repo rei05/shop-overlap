@@ -1,5 +1,6 @@
 import XCTest
 
+@MainActor
 final class ShopOverlapUITests: XCTestCase {
     func testKeepsSearchActionVisibleWithOptionsInitiallyCollapsed() {
         let app = XCUIApplication()
@@ -55,6 +56,22 @@ final class ShopOverlapUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["search-requirements-message"].exists)
         XCTAssertFalse(app.buttons["search-button"].isEnabled)
+    }
+
+    func testCurrentLocationSetsPlaceFieldToCurrentLocation() {
+        let app = XCUIApplication()
+        app.launch()
+
+        let placeField = app.textFields["place-field"]
+        XCTAssertTrue(placeField.waitForExistence(timeout: 2))
+
+        let currentLocationButton = app.buttons["map-current-location-button"]
+        XCTAssertTrue(currentLocationButton.waitForExistence(timeout: 2))
+        currentLocationButton.tap()
+
+        let currentLocationValue = NSPredicate(format: "value == %@", "現在地")
+        expectation(for: currentLocationValue, evaluatedWith: placeField)
+        waitForExpectations(timeout: 5)
     }
 
     func testRequiresSelectingAPlaceAfterEditingTheQuery() {

@@ -24,14 +24,30 @@ protocol LocationProviding: AnyObject {
     func currentCoordinate() async throws -> Coordinate
 }
 
+@MainActor
+protocol LocationManaging: AnyObject {
+    var authorizationStatus: CLAuthorizationStatus { get }
+    var delegate: CLLocationManagerDelegate? { get set }
+    var desiredAccuracy: CLLocationAccuracy { get set }
+
+    func requestWhenInUseAuthorization()
+    func requestLocation()
+}
+
+extension CLLocationManager: LocationManaging {}
+
 @Observable
 @MainActor
-final class LocationService: NSObject, LocationProviding, CLLocationManagerDelegate {
-    private let manager: CLLocationManager
+final class LocationService: NSObject, LocationProviding, @preconcurrency CLLocationManagerDelegate {
+    private let manager: any LocationManaging
     private var continuation: CheckedContinuation<Coordinate, Error>?
 
-    override init() {
-        manager = CLLocationManager()
+    override convenience init() {
+        self.init(manager: CLLocationManager())
+    }
+
+    init(manager: any LocationManaging) {
+        self.manager = manager
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
@@ -45,7 +61,7 @@ final class LocationService: NSObject, LocationProviding, CLLocationManagerDeleg
         case .restricted:
             throw LocationError.restricted
         case .notDetermined:
-            manager.requestWhenInUseAuthorization()
+            break
         case .authorizedAlways, .authorizedWhenInUse:
             break
         @unknown default:
@@ -54,7 +70,18 @@ final class LocationService: NSObject, LocationProviding, CLLocationManagerDeleg
 
         return try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
-            manager.requestLocation()
+            switch manager.authorizationStatus {
+            case .notDetermined:
+                manager.requestWhenInUseAuthorization()
+            case .authorizedAlways, .authorizedWhenInUse:
+                manager.requestLocation()
+            case .denied:
+                finish(with: .failure(LocationError.denied))
+            case .restricted:
+                finish(with: .failure(LocationError.restricted))
+            @unknown default:
+                finish(with: .failure(LocationError.unavailable))
+            }
         }
     }
 
@@ -67,14 +94,14 @@ final class LocationService: NSObject, LocationProviding, CLLocationManagerDeleg
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        finish(with: .failure(LocationError.unavailable))
+        finish(with: .failure(locationError(for: error)))
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         guard continuation != nil else { return }
-        switch manager.authorizationStatus {
+        switch self.manager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
-            manager.requestLocation()
+            self.manager.requestLocation()
         case .denied:
             finish(with: .failure(LocationError.denied))
         case .restricted:
@@ -90,5 +117,21 @@ final class LocationService: NSObject, LocationProviding, CLLocationManagerDeleg
         let continuation = continuation
         self.continuation = nil
         continuation?.resume(with: result)
+    }
+
+    private func locationError(for error: Error) -> LocationError {
+        switch manager.authorizationStatus {
+        case .denied:
+            return .denied
+        case .restricted:
+            return .restricted
+        default:
+            break
+        }
+
+        if let coreLocationError = error as? CLError, coreLocationError.code == .denied {
+            return .denied
+        }
+        return .unavailable
     }
 }
